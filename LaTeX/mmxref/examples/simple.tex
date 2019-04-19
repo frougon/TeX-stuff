@@ -1,0 +1,75 @@
+\documentclass{report}
+\usepackage{mmxref}
+
+% The default prefix for labels created by mmxref is “mmxref-”. You can easily
+% change this prefix:
+%\mmxSetLabelPrefix{prefix of your choice (possibly empty)}
+
+\begin{document}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt plus 0.5pt minus 0.2pt}
+
+\part{A Great Part}
+\mmxlabel{a great part}
+
+Foo bar in the part. All that.
+
+\mmxInsertBackReferences[\emph{This fascinating part was referenced}]{a great
+  part}
+
+\chapter{The First Chapter}
+\mmxlabel{first chapter}
+
+See~\mmxautoref{another section}, \mmxautoref{section in 2nd chapter},
+and~\mmxautoref{a subsection}.
+
+\mmxInsertBackReferences{first chapter}
+
+\section{A Section}
+\mmxlabel{a section}
+
+% If the preceding \mmxlabel were to be omitted, the backreference generated
+% by the following \mmxautoref command would point to the last \mmxlabel
+% issued, which corresponds to the first chapter.
+Some text. See~\mmxautoref{a great part}.
+
+\section{Another Section}
+\mmxlabel{another section}
+
+See~\mmxautoref{first chapter}.
+
+\mmxInsertBackReferences{another section}
+
+\subsection{A Subsection}
+\mmxlabel{a subsection}
+See~\mmxautoref{another section}, \mmxautoref{a subsection},
+and~\mmxautoref{first chapter}.
+
+%\mmxInsertBackReferences[This marvelous place]{a subsection}
+\mmxInsertBackReferences{a subsection}
+
+\chapter{The Second Chapter}
+\mmxlabel{second chapter}
+
+\mmxInsertBackReferences{second chapter}
+
+\section{A Section In The Second Chapter}
+\mmxlabel{section in 2nd chapter} See~\mmxautoref{a subsection},
+\mmxautoref{another section} and also \mmxautoref{third chapter}, which starts
+on page~\mmxpageref{third chapter}.
+
+\mmxInsertBackReferences{section in 2nd chapter}
+
+\chapter{The Third Chapter}
+\mmxlabel{third chapter}
+
+Text in the third chapter.
+
+\section{And Now For Something Completely Different}
+\mmxlabel{Something Completely Different}
+
+Let's point to \mmxautoref[third chapter]{second chapter}, but in way that
+makes the back-reference be \mmxautoref{third chapter} instead of
+\mmxautoref{Something Completely Different}. That's what the optional argument
+of \verb|\mmxref| and \verb|\mmxautoref| is for.
+\end{document}

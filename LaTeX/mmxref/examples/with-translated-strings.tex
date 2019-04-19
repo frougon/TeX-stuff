@@ -1,0 +1,157 @@
+\documentclass{report}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{mmxref}
+
+% The default prefix for labels created by mmxref is “mmxref-”. You can easily
+% change this prefix:
+%\mmxSetLabelPrefix{prefix of your choice (possibly empty)}
+
+% If you want to keep the default wording from mmxref.sty for generated
+% phrases, you can remove everything below up to, and including the \fi.
+% In order to disable the French translations defined below, just replace
+% '\mmxrefspeaksFrenchtrue' with '\mmxrefspeaksFrenchfalse'.
+%
+\newif\ifmmxrefspeaksFrench     % conditional used to optionally skip the
+\mmxrefspeaksFrenchtrue         % following redefinitions (French translation)
+
+\ifmmxrefspeaksFrench
+\usepackage{xparse}           % only necessary if you use it for customization
+\ExplSyntaxOn
+\RenewDocumentCommand \mmxSeparatorBetweenTwo { }
+  { ~et~ }
+
+\RenewDocumentCommand \mmxSeparatorBetweenMoreThanTwo { }
+  { ,~ }
+
+\RenewDocumentCommand \mmxSeparatorBetweenFinalTwo { }
+  { ~et~ }
+
+\RenewDocumentCommand \mmxFormatSimpleRef { m }
+  {
+    \str_case:nnF {#1}
+      {
+        { part } { partie }
+        { chapter } { chapitre }
+        { section } { section }
+        { subsection } { section } % intentional: “subsection” is too ugly here
+        { subsubsection } { section } % ditto
+        { paragraph } { paragraphe }
+        { subparagraph } { paragraphe } % ditto
+      }
+      {
+        \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}
+      }
+  }
+
+\RenewDocumentCommand \mmxFormatStartOfInsertionPhrase { m }
+  {
+    \str_case:nnF {#1}
+      {
+        { part } { Cette~partie~a~été~référencée }
+        { chapter } { Ce~chapitre~a~été~référencé }
+        { section } { Cette~section~a~été~référencée }
+        % Intentional: “subsection” is too ugly here
+        { subsection } { Cette~section~a~été~référencée }
+        { subsubsection } { Cette~section~a~été~référencée } % ditto
+        { paragraph } { Ce~paragraphe~a~été~référencé }
+        { subparagraph } { Ce~paragraphe~a~été~référencé } % ditto
+      }
+      {
+        \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}
+      }
+  }
+
+\RenewDocumentCommand \mmxFormatBackRef { m m m }
+  {
+    \str_case:nnF {#1}
+      {
+        { part } { à~la~partie \nobreakspace #2~page \nobreakspace #3 }
+        { chapter } { au~chapitre \nobreakspace #2~page \nobreakspace #3 }
+        { section } { à~la~section \nobreakspace #2~page \nobreakspace #3 }
+        % Intentional: « sous-section » is too ugly here
+        { subsection } { à~la~section \nobreakspace #2~page \nobreakspace #3 }
+        % Ditto
+        { subsubsection } { à~la~section \nobreakspace #2~page \nobreakspace
+        #3 }
+        { paragraph } { au~paragraphe \nobreakspace #2~page \nobreakspace #3 }
+        % Ditto
+        { subparagraph } { au~paragraphe \nobreakspace #2~
+                           page \nobreakspace #3 }
+      }
+      {
+        \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}
+      }
+  }
+\ExplSyntaxOff
+\fi
+
+\begin{document}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt plus 0.5pt minus 0.2pt}
+
+\part{A Great Part}
+\mmxlabel{a great part}
+
+Foo bar in the part. All that.
+
+\mmxInsertBackReferences[\emph{This fascinating part was referenced}]{a great
+  part}
+
+\chapter{The First Chapter}
+\mmxlabel{first chapter}
+
+See~\mmxautoref{another section}, \mmxautoref{section in 2nd chapter},
+and~\mmxautoref{a subsection}.
+
+\mmxInsertBackReferences{first chapter}
+
+\section{A Section}
+\mmxlabel{a section}
+
+% If the preceding \mmxlabel were to be omitted, the backreference generated
+% by the following \mmxautoref command would point to the last \mmxlabel
+% issued, which corresponds to the first chapter.
+Some text. See~\mmxautoref{a great part}.
+
+\section{Another Section}
+\mmxlabel{another section}
+
+See~\mmxautoref{first chapter}.
+
+\mmxInsertBackReferences{another section}
+
+\subsection{A Subsection}
+\mmxlabel{a subsection}
+See~\mmxautoref{another section}, \mmxautoref{a subsection},
+and~\mmxautoref{first chapter}.
+
+%\mmxInsertBackReferences[This marvelous place]{a subsection}
+\mmxInsertBackReferences{a subsection}
+
+\chapter{The Second Chapter}
+\mmxlabel{second chapter}
+
+\mmxInsertBackReferences{second chapter}
+
+\section{A Section In The Second Chapter}
+\mmxlabel{section in 2nd chapter} See~\mmxautoref{a subsection},
+\mmxautoref{another section} and also \mmxautoref{third chapter}, which starts
+on page~\mmxpageref{third chapter}.
+
+\mmxInsertBackReferences{section in 2nd chapter}
+
+\chapter{The Third Chapter}
+\mmxlabel{third chapter}
+
+Text in the third chapter.
+
+\section{And Now For Something Completely Different}
+\mmxlabel{Something Completely Different}
+
+Let's point to \mmxautoref[third chapter]{second chapter}, but in way that
+makes the back-reference be \mmxautoref{third chapter} instead of
+\mmxautoref{Something Completely Different}. That's what the optional argument
+of \verb|\mmxref| and \verb|\mmxautoref| is for.
+\end{document}

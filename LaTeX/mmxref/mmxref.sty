@@ -15,7 +15,8 @@
 %
 % The Current Maintainer of this work is Florent Rougon.
 %
-% This work consists of the sole file mmxref.sty.
+% This work consists of the sole files mmxref.sty, README.md and all
+% files from the 'examples' directory.
 %
 % Part of the code below comes from an answer by Enrico Gregorio[1] on
 % TeX.StackExchange.com, many thanks to him!
@@ -26,7 +27,11 @@
 \RequirePackage{expl3}
 \RequirePackage{xparse}
 \RequirePackage{l3keys2e}
-\ProvidesExplPackage{mmxref}{2019-04-15}{0.0}
+\RequirePackage{zref}
+\RequirePackage{zref-user}   % for \zref
+\RequirePackage{zref-counter}% not really required, but allows to do nice things
+
+\ProvidesExplPackage{mmxref}{2019-04-18}{0.1}
                     {Gather and list back-references for target labels}
 
 % ****************************************************************************
@@ -34,9 +39,46 @@
 % ****************************************************************************
 \msg_new:nnn { mmxref } { io/data-written-to-aux-file }
   { Data~has~been~written~to~the~.aux~file. }
-\msg_new:nnn { mmxref } { logic/additional-compilation-run-may-be-needed }
+\msg_new:nnn { mmxref } { main/additional-compilation-run-may-be-needed }
   { Lists~of~back-references~have~changed;~another~compilation~run~may~be~
     needed. }
+\msg_new:nnn { mmxref } { main/undefined-ref-format-for-counter }
+  { No~format~defined~for~references~associated~to~the~'#1'~counter. }
+
+% ****************************************************************************
+% *                                zref setup                                *
+% ****************************************************************************
+\zref@newlist{mmxref}
+% \RequirePackage{zref-counter} is needed for 'counter'. The 'default' and
+% 'page' properties are from the base zref package.
+\zref@addprops{mmxref}{default,page,counter}
+
+% ****************************************************************************
+% *             LaTeX3 bindings to macros from the zref package              *
+% ****************************************************************************
+\cs_new_protected:Npn \mmxref_set_label:n #1
+  {
+    \zref@labelbylist { #1 } { mmxref }
+  }
+
+\cs_generate_variant:Nn \mmxref_set_label:n { V }
+
+\cs_new_protected:Npn \mmxref_zref:nn #1#2
+  {
+    \zref [#1] {#2}
+  }
+
+\cs_generate_variant:Nn \mmxref_zref:nn { nV }
+
+\cs_new_protected:Npn \mmxref_zpageref:n #1
+  {
+    \zpageref {#1}
+  }
+
+\cs_generate_variant:Nn \mmxref_zpageref:n { x }
+
+\cs_new:Npn \mmxref_extract_prop:nn #1#2
+  { \zref@extract {#1} {#2} }    % \zref@extract is expandable
 
 % ****************************************************************************
 % *                         Functions of general use                         *
@@ -100,12 +142,23 @@
 % *                             Global variables                             *
 % ****************************************************************************
 
+% Default prefix used for all reference names (à la \label{...}) put by this
+% package
+\str_new:N \g_mmxref_label_prefix_str
+\str_gset:Nn \g_mmxref_label_prefix_str { mmxref- }
+% Name of the most recent label declared with \mmxlabel
+\str_new:N \g_mmxref_most_recent_label_str
 % The current list of targets
 \seq_new:N \g__mmxref_targets_seq
 % Ditto, but from the previous run (as obtained from the .aux file)
 \seq_new:N \g__mmxref_previous_targets_seq
-% Name of the most recent label declared with \mmxlabel
-\str_new:N \g_mmxref_most_recent_label_str
+
+% ****************************************************************************
+% *                             Local temporaries                            *
+% ****************************************************************************
+
+\str_new:N \l__mmxref_tmpa_str
+\str_new:N \l__mmxref_tmpb_str
 
 % ****************************************************************************
 % *                                Main code                                 *
@@ -195,20 +248,6 @@
       { \prg_return_false: }
   }
 
-% #1: label name
-\NewDocumentCommand \mmxlabel { m }
-  {
-    \str_gset:Nn \g_mmxref_most_recent_label_str {#1}
-  }
-
-\cs_generate_variant:Nn \mmxref_add_referrer_for_target:nn { nV }
-
-% #1: target label
-\NewDocumentCommand \mmxref { m }
-  {
-    \mmxref_add_referrer_for_target:nV {#1} \g_mmxref_most_recent_label_str
-  }
-
 \AtEndDocument
   {
     % Prevent error when the .aux file is reread. Could, and maybe even should
@@ -224,14 +263,292 @@
     \mmxref_if_old_data_same_as_current:F
       {
         \msg_warning:nn { mmxref }
-          { logic/additional-compilation-run-may-be-needed }
+          { main/additional-compilation-run-may-be-needed }
       }
+  }
+
+% ****************************************************************************
+% *                  Translatable phrases an user commands                   *
+% ****************************************************************************
+
+% User-customizable “phrases”
+\NewDocumentCommand \mmxSeparatorBetweenTwo { }
+  { ~and~ }
+
+\NewDocumentCommand \mmxSeparatorBetweenMoreThanTwo { }
+  { ,~ }
+
+\NewDocumentCommand \mmxSeparatorBetweenFinalTwo { }
+  { ,~and~ }
+
+% #1: counter name for a target reference
+\cs_new_protected:Npn \mmxref_format_start_of_insertion_phrase:n #1
+  {
+    % \mmxFormatStartOfInsertionPhrase may be redefined by users. We'll call
+    % it with its arguments fully expanded, in order to make it easy to work
+    % with for users (this way, \mmxFormatStartOfInsertionPhrase doesn't need
+    % to expand its first argument before comparing it to well-known values).
+    \mmxFormatStartOfInsertionPhrase {#1}
+  }
+
+\cs_generate_variant:Nn \mmxref_format_start_of_insertion_phrase:n { x }
+
+% May be redefined by users (e.g., for translations)
+% #1: counter name for a target reference
+\NewDocumentCommand \mmxFormatStartOfInsertionPhrase { m }
+  {
+    % One could avoid the indirection layer through
+    % \mmxref_format_start_of_insertion_phrase:xxx by using \str_case:xnF
+    % here, but since this command (\mmxFormatStartOfInsertionPhrase) is
+    % user-redefinable, let's make it as easy as possible to work with.
+    \str_case:nnF {#1}
+      {
+        { part } { This~part~was~referenced }
+        { chapter } { This~chapter~was~referenced }
+        { section } { This~section~was~referenced }
+        % Intentional: “subsection” is too ugly here
+        { subsection } { This~section~was~referenced }
+        { subsubsection } { This~section~was~referenced } % ditto
+        { paragraph } { This~paragraph~was~referenced }
+        { subparagraph } { This~paragraph~was~referenced } % ditto
+      }
+      {
+        \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}
+      }
+  }
+
+% #1: reference name (label), including the prefix
+\cs_new_protected:Npn \mmxref_format_start_of_insertion_phrase_for_label:n #1
+  {
+    \zifrefundefined {#1} { }   % only extract from ref when it's defined
+      {
+        \mmxref_format_start_of_insertion_phrase:x
+          { \mmxref_extract_prop:nn {#1} { counter } }
+      }
+  }
+
+\cs_generate_variant:Nn \mmxref_format_start_of_insertion_phrase_for_label:n
+  { x }
+
+% User-customizable reference formatting for a given label
+% #1: reference name (label) of a referrer (unprefixed)
+\NewDocumentCommand \mmxFormatStartOfInsertionPhraseForLabel { m }
+  {
+    \mmxref_format_start_of_insertion_phrase_for_label:x
+      { \str_use:N \g_mmxref_label_prefix_str #1 }
+  }
+
+% #1: counter name for a target reference
+\cs_new_protected:Npn \mmxref_format_simple_ref:n #1
+  {
+    % \mmxFormatSimpleRef may be redefined by users. We'll call it with its
+    % arguments fully expanded, in order to make it easy to work with for
+    % users (this way, \mmxFormatSimpleRef doesn't need to expand its first
+    % argument before comparing it to well-known values).
+    \mmxFormatSimpleRef {#1}
+  }
+
+\cs_generate_variant:Nn \mmxref_format_simple_ref:n { x }
+
+% May be redefined by users (e.g., for translations)
+% #1: counter name for a reference
+\NewDocumentCommand \mmxFormatSimpleRef { m }
+  {
+    % One could avoid the indirection layer through
+    % \mmxref_format_simple_ref:xxx by using \str_case:xnF
+    % here, but since this command (\mmxFormatSimpleRef) is
+    % user-redefinable, let's make it as easy as possible to work with.
+    \str_case:nnF {#1}
+      {
+        { part } { part }
+        { chapter } { chapter }
+        { section } { section }
+        { subsection } { section } % intentional: “subsection” is too ugly here
+        { subsubsection } { section } % ditto
+        { paragraph } { paragraph }
+        { subparagraph } { paragraph } % ditto
+      }
+      {
+        \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}
+      }
+  }
+
+% #1: reference name (label), including the prefix
+\cs_new_protected:Npn \mmxref_format_simple_ref_for_label:n #1
+  {
+    \zifrefundefined {#1} { }   % only extract from ref when it's defined
+      {
+        \mmxref_format_simple_ref:x
+          { \mmxref_extract_prop:nn {#1} { counter } }
+      }
+  }
+
+\cs_generate_variant:Nn \mmxref_format_simple_ref_for_label:n { x }
+
+% User-customizable reference formatting for a given label
+% #1: reference name (label, unprefixed)
+\NewDocumentCommand \mmxFormatSimpleRefForLabel { m }
+  {
+    \mmxref_format_simple_ref_for_label:x
+      { \str_use:N \g_mmxref_label_prefix_str #1 }
+  }
+
+% #1: counter name for a back-reference (a referrer)
+% #2: value of the 'default' property
+% #3: value of the 'page' property
+\cs_new_protected:Npn \mmxref_format_backref:nnn #1#2#3
+  {
+    % \mmxFormatBackRef may be redefined by users. We'll call it with its
+    % arguments fully expanded, in order to make it easy to work with for
+    % users (this way, \mmxFormatBackRef doesn't need to expand its first
+    % argument before comparing it to well-known values).
+    \mmxFormatBackRef {#1} {#2} {#3}
+  }
+
+\cs_generate_variant:Nn \mmxref_format_backref:nnn { xxx }
+
+% May be redefined by users (e.g., for translations)
+% #1: counter name for a back-reference (a referrer)
+% #2: value of the 'default' property
+% #3: value of the 'page' property
+\NewDocumentCommand \mmxFormatBackRef { m m m }
+  {
+    % One could avoid the indirection layer through \mmxref_format_backref:xxx
+    % by using \str_case:xnF here, but since this command (\mmxFormatBackRef)
+    % is user-redefinable, let's make it as easy as possible to work with.
+    \str_case:nnF {#1}
+      {
+        { part } { in~part \nobreakspace #2~page \nobreakspace #3 }
+        { chapter } { in~chapter \nobreakspace #2~page \nobreakspace #3 }
+        { section } { in~section \nobreakspace #2~page \nobreakspace #3 }
+        % Intentional: “subsection” is too ugly here
+        { subsection } { in~section \nobreakspace #2~page \nobreakspace #3 }
+        % Ditto
+        { subsubsection } { in~section \nobreakspace #2~page \nobreakspace #3 }
+        { paragraph } { in~paragraph \nobreakspace #2~page \nobreakspace #3 }
+        % Ditto
+        { subparagraph } { in~paragraph \nobreakspace #2~page \nobreakspace #3 }
+      }
+      {
+        \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}
+      }
+  }
+
+% #1: reference name (label), including the prefix
+\cs_new_protected:Npn \mmxref_format_backref_for_label:n #1
+  {
+    \zifrefundefined {#1} { }   % only extract from ref when it's defined
+      {
+        \mmxref_format_backref:xxx
+          { \mmxref_extract_prop:nn {#1} { counter } }
+          { \mmxref_extract_prop:nn {#1} { default } }
+          { \mmxref_extract_prop:nn {#1} { page } }
+      }
+  }
+
+% User-customizable reference formatting for a given label
+% #1: reference name (label) of a referrer (including the prefix)
+\NewDocumentCommand \mmxFormatBackRefForLabel { m }
+  {
+    \mmxref_format_backref_for_label:n {#1}
+  }
+
+% #1: label name (unprefixed)
+\NewDocumentCommand \mmxlabel { m }
+  {
+    % Prefix for the reference name (the label)
+    \str_gset:Nx \g_mmxref_most_recent_label_str
+      { \str_use:N \g_mmxref_label_prefix_str #1 }
+    % Put a label in the document
+    \mmxref_set_label:V \g_mmxref_most_recent_label_str
+  }
+
+% #1: label name (unprefixed)
+\NewDocumentCommand \mmxpageref { m }
+  {
+    \mmxref_zpageref:x { \str_use:N \g_mmxref_label_prefix_str #1 }
+  }
+
+\cs_generate_variant:Nn \mmxref_add_referrer_for_target:nn { VV }
+
+% #1: backref: the inserted ref will pretend to have been inserted from #1.
+% #2: target label, without prefix.
+\NewDocumentCommand \mmxref { o m }
+  {
+    \IfValueTF {#1}
+      % If provided, the optional argument is appended to the prefix
+      { \str_set:Nx \l__mmxref_tmpa_str
+        { \str_use:N \g_mmxref_label_prefix_str #1} }
+      % Otherwise, use the most recent label created with \mmxlabel
+      { \str_set_eq:NN \l__mmxref_tmpa_str \g_mmxref_most_recent_label_str }
+
+    \str_set:Nx \l__mmxref_tmpb_str
+      { \str_use:N \g_mmxref_label_prefix_str #2 } % target
+    \mmxref_add_referrer_for_target:VV \l__mmxref_tmpb_str \l__mmxref_tmpa_str
+
+    \mmxref_zref:nV { default } \l__mmxref_tmpb_str
+  }
+
+% #1: backref: the inserted ref will pretend to have been inserted from #1.
+% #2: target label, without prefix.
+\NewDocumentCommand \mmxautoref { o m }
+  {
+    \mmxFormatSimpleRefForLabel {#2} % “part”, or “chapter”, or “section”, etc .
+    \nobreakspace
+    \IfValueTF {#1}
+      { \mmxref [#1] {#2} }
+      { \mmxref {#2} }
+  }
+
+\seq_new:N \l_mmxref_format_list_of_backreferences_seq
+\cs_generate_variant:Nn \seq_use:Nnnn { Nxxx }
+
+% Insert all back references found for label #1 (i.e., all labels <lbl> from
+% which \mmxref[<lbl>]{<prefix>#1} was called). The input is the data loaded
+% from the .aux file.
+\cs_new_protected:Npn \mmxref_format_list_of_backreferences:n #1
+  {
+    \seq_clear:N \l_mmxref_format_list_of_backreferences_seq
+    \seq_map_inline:cn
+      { g__mmxref_previous_referrers_for_ \g_mmxref_label_prefix_str #1 _seq }
+      {
+        % If desired, it would be possible to make \mmxFormatBackRefForLabel
+        % expandable and call \zref@refused here.
+        \seq_put_right:Nn \l_mmxref_format_list_of_backreferences_seq
+          { \mmxFormatBackRefForLabel {##1} }
+      }
+
+    \seq_use:Nnnn \l_mmxref_format_list_of_backreferences_seq
+      { \mmxSeparatorBetweenTwo }
+      { \mmxSeparatorBetweenMoreThanTwo }
+      { \mmxSeparatorBetweenFinalTwo }
+  }
+
+% #1: phrase describing the sectional unit in which the phrase is inserted
+%     (“This section”, “This chapter”, etc.)
+% #2: unprefixed reference name (label) whose backreferences are to be
+%     listed. IOW, #2 is the target label of the listed backreferences.
+%
+% (Admittedly, this is not a perfect way to allow translations in a wide range
+% of languages.)
+\NewDocumentCommand \mmxInsertBackReferences { o m }
+  {
+    \IfValueTF {#1}
+      {#1}
+      { \mmxFormatStartOfInsertionPhraseForLabel {#2} }
+
+    \space~\mmxref_format_list_of_backreferences:n {#2}.
+  }
+
+\NewDocumentCommand \mmxSetLabelPrefix { m }
+  {
+    \str_gset:Nn \g_mmxref_label_prefix_str {#1}
   }
 
 % To be filled with actual options
 \keys_define:nn { mmxref } { }
 
-\NewDocumentCommand \mmxrefSetup { m }
+\NewDocumentCommand \mmxSetup { m }
   {
     \keys_set:nn { mmxref } {#1}
   }
