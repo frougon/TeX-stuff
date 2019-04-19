@@ -168,8 +168,8 @@ have a look in the `examples` subdirectory!
 ### License
 
 This package is free software released under the LaTeX Project Public License
-version 1.3 or (at your option) any later version. See mmxref.sty and
-COPYING.txt.
+version 1.3 or (at your option) any later version. See `mmxref.sty` for the
+precise licensing information.
 
 ### Thanks
 
