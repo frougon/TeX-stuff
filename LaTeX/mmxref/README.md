@@ -66,7 +66,9 @@ that improve on LaTeX's standard label/reference system:
   `\zlabel` on page, which allows one to compute the distance between two
   elements on a given page, etc.
 
-`mmxref` uses [zref](https://ctan.org/pkg/zref) to manage its references.
+`mmxref` uses [zref](https://ctan.org/pkg/zref) to manage its references. You
+can see a few screenshots obtained with basic `mmxref` sample files [on
+TeX.StackExchange.com](https://tex.stackexchange.com/a/485386/73317).
 
 ## Quick Instructions
 
