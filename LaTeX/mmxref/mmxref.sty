@@ -219,7 +219,7 @@
 % additional compilation run, in order to save on compilation time for *all*
 % runs, that could be serious with a large number of targets. In any case,
 % correctness of the document is *not* sacrificed.
-\prg_new_protected_conditional:Nnn \mmxref_if_old_data_same_as_current: { F }
+\prg_new_protected_conditional:Nnn \__mmxref_if_old_data_same_as_current: { F }
   {
     % No difference found between the two datasets so far (true = equal)
     \bool_set_true:N \l__mmxref_iodsac_result_bool
@@ -252,7 +252,7 @@
   {
     % Prevent error when the .aux file is reread. Could, and maybe even should
     % be changed to initialize the “new dataset” used by the
-    % \mmxref_if_old_data_same_as_current: conditional. But we already have
+    % \__mmxref_if_old_data_same_as_current: conditional. But we already have
     % this dataset in memory, so we take a little shortcut.
     \cs_set_eq:cN { mmxref@set@referrers@for@target } \use_none:nn
 
@@ -260,7 +260,7 @@
       { \seq_map_function:NN \g__mmxref_targets_seq \__mmxref_write_target:n }
     \msg_info:nn { mmxref } { io/data-written-to-aux-file }
 
-    \mmxref_if_old_data_same_as_current:F
+    \__mmxref_if_old_data_same_as_current:F
       {
         \msg_warning:nn { mmxref }
           { main/additional-compilation-run-may-be-needed }
@@ -500,7 +500,7 @@
       { \mmxref {#2} }
   }
 
-\seq_new:N \l_mmxref_format_list_of_backreferences_seq
+\seq_new:N \l__mmxref_format_list_of_backreferences_seq
 \cs_generate_variant:Nn \seq_use:Nnnn { Nxxx }
 
 % Insert all back references found for label #1 (i.e., all labels <lbl> from
@@ -508,17 +508,17 @@
 % from the .aux file.
 \cs_new_protected:Npn \mmxref_format_list_of_backreferences:n #1
   {
-    \seq_clear:N \l_mmxref_format_list_of_backreferences_seq
+    \seq_clear:N \l__mmxref_format_list_of_backreferences_seq
     \seq_map_inline:cn
       { g__mmxref_previous_referrers_for_ \g_mmxref_label_prefix_str #1 _seq }
       {
         % If desired, it would be possible to make \mmxFormatBackRefForLabel
         % expandable and call \zref@refused here.
-        \seq_put_right:Nn \l_mmxref_format_list_of_backreferences_seq
+        \seq_put_right:Nn \l__mmxref_format_list_of_backreferences_seq
           { \mmxFormatBackRefForLabel {##1} }
       }
 
-    \seq_use:Nnnn \l_mmxref_format_list_of_backreferences_seq
+    \seq_use:Nnnn \l__mmxref_format_list_of_backreferences_seq
       { \mmxSeparatorBetweenTwo }
       { \mmxSeparatorBetweenMoreThanTwo }
       { \mmxSeparatorBetweenFinalTwo }
