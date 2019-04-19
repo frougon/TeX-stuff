@@ -74,6 +74,14 @@ You can declare a target label with `\mmxlabel{refname}` and point to it with
 outputs the printed page number for the place where `\mmxlabel{refname}` has
 been put.
 
+Since `mmxref` may need to refer to labelled places it hasn't seen yet in your
+document, it uses the `.aux` file in the usual way: what is typeset in a given
+LaTeX run is based on the contents of the `.aux` file written by the
+*previous* LaTeX run. This implies that several compilation runs are needed in
+general for things to stabilize. Most of the times, two are sufficient;
+`mmxref` prints a warning on the terminal and in the log file when more
+compilations are needed.
+
 By default, all references managed by `mmxref` are automatically prefixed with
 `mmxref-`. This avoids clashes between, e.g., `\label{foobar}` and
 `\mmxlabel{foobar}`, because the latter actually defines the label
