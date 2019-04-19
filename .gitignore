@@ -1,0 +1,6 @@
+auctex-auto/
+tmp/
+*.aux
+*.log
+*.pdf
+*.png

@@ -1,0 +1,245 @@
+% mmxref.sty - Gather and list back-references for target labels
+% -*- coding: utf-8 -*-
+%
+% Copyright (C) 2019  Florent Rougon, Enrico Gregorio
+%
+% This work may be distributed and/or modified under the
+% conditions of the LaTeX Project Public License, either version 1.3
+% of this license or (at your option) any later version.
+% The latest version of this license is in
+%   http://www.latex-project.org/lppl.txt
+% and version 1.3 or later is part of all distributions of LaTeX
+% version 2005/12/01 or later.
+%
+% This work has the LPPL maintenance status `maintained'.
+%
+% The Current Maintainer of this work is Florent Rougon.
+%
+% This work consists of the sole file mmxref.sty.
+%
+% Part of the code below comes from an answer by Enrico Gregorio[1] on
+% TeX.StackExchange.com, many thanks to him!
+%
+% [1] https://tex.stackexchange.com/a/484806/73317
+%
+\NeedsTeXFormat{LaTeX2e}[1995/12/01]
+\RequirePackage{expl3}
+\RequirePackage{xparse}
+\RequirePackage{l3keys2e}
+\ProvidesExplPackage{mmxref}{2019-04-15}{0.0}
+                    {Gather and list back-references for target labels}
+
+% ****************************************************************************
+% *                     Messages emitted by the package                      *
+% ****************************************************************************
+\msg_new:nnn { mmxref } { io/data-written-to-aux-file }
+  { Data~has~been~written~to~the~.aux~file. }
+\msg_new:nnn { mmxref } { logic/additional-compilation-run-may-be-needed }
+  { Lists~of~back-references~have~changed;~another~compilation~run~may~be~
+    needed. }
+
+% ****************************************************************************
+% *                         Functions of general use                         *
+% ****************************************************************************
+
+\seq_new:N \l__mmxref_osie_a_seq % osie = ordered_seq_if_equal
+\seq_new:N \l__mmxref_osie_b_seq
+\tl_new:N \l__mmxref_osie_a_tl
+\tl_new:N \l__mmxref_osie_b_tl
+\bool_new:N \l__mmxref_osie_a_bool
+\bool_new:N \l__mmxref_osie_b_bool
+
+% Compare two sequences of token lists. For each pair of items in the same
+% position, the comparison function used is \str_if_eq, *not* \tl_if_eq.
+% Therefore category codes are normalized before any two items are compared.
+%
+% Note: non-expandable, but should be relatively fast (hopefully).
+\prg_new_protected_conditional:Npnn \__mmxref_ordered_seq_if_equal:NN #1#2
+  { T, F, TF }
+  {
+    \int_compare:nNnTF { \seq_count:N #1 } = { \seq_count:N #2 }
+    {
+      % Make copies of the input sequences, because for efficient sequential
+      % access, we are going to pop their items one by one.
+      \seq_set_eq:NN \l__mmxref_osie_a_seq #1
+      \seq_set_eq:NN \l__mmxref_osie_b_seq #2
+
+      % Whether to continue iterating
+      \bool_set_true:N \l__mmxref_osie_a_bool
+      % Result of the comparison between #1 and #2
+      \bool_set_true:N \l__mmxref_osie_b_bool
+
+      \bool_do_while:Nn \l__mmxref_osie_a_bool
+        {
+          \seq_pop_left:NN \l__mmxref_osie_a_seq \l__mmxref_osie_a_tl
+          \seq_pop_left:NN \l__mmxref_osie_b_seq \l__mmxref_osie_b_tl
+
+          \tl_if_eq:NNTF \l__mmxref_osie_a_tl \q_no_value
+            { \bool_set_false:N \l__mmxref_osie_a_bool } % all items compared
+            {
+              \str_if_eq:NNF \l__mmxref_osie_a_tl \l__mmxref_osie_b_tl
+                {
+                  % Break out of the loop
+                  \bool_set_false:N \l__mmxref_osie_a_bool
+                  % The sequences are different
+                  \bool_set_false:N \l__mmxref_osie_b_bool
+                }
+            }
+        }
+
+        \bool_if:NTF \l__mmxref_osie_b_bool
+          { \prg_return_true: }
+          { \prg_return_false: }
+    }
+    { \prg_return_false: }
+  }
+
+\cs_generate_variant:Nn \__mmxref_ordered_seq_if_equal:NNF { cc }
+
+% ****************************************************************************
+% *                             Global variables                             *
+% ****************************************************************************
+
+% The current list of targets
+\seq_new:N \g__mmxref_targets_seq
+% Ditto, but from the previous run (as obtained from the .aux file)
+\seq_new:N \g__mmxref_previous_targets_seq
+% Name of the most recent label declared with \mmxlabel
+\str_new:N \g_mmxref_most_recent_label_str
+
+% ****************************************************************************
+% *                                Main code                                 *
+% ****************************************************************************
+
+\cs_generate_variant:Nn \seq_gset_split:Nnn { c }
+
+% Executed when the .aux file is read: recovers data from the previous run
+\cs_new_protected:cpn { mmxref@set@referrers@for@target } #1#2
+  {
+    % Append to target list of the previous run
+    \seq_gput_right:Nn \g__mmxref_previous_targets_seq {#1}
+    \seq_new:c { g__mmxref_previous_referrers_for_#1_seq }
+    \seq_gset_split:cnn { g__mmxref_previous_referrers_for_#1_seq } { } {#2}
+  }
+
+\cs_new:Nn \__mmxref_write_target:n
+  {
+    \token_to_str:N \mmxref@set@referrers@for@target {#1}
+    {
+      ^^J
+      \seq_map_function:cN    % write an entry for each referrer of target #1
+        { g__mmxref_referrers_for_#1_seq }
+        \__mmxref_write_referrer:n
+    }
+    ^^J
+  }
+
+\cs_new:Npn \__mmxref_write_referrer:n #1
+  { {#1} ^^J }
+
+\cs_generate_variant:Nn \seq_set_eq:NN { cc }
+
+% #1: target (a label)
+% #2: referrer (a label)
+\cs_new_protected:Npn \mmxref_add_referrer_for_target:nn #1#2
+  {
+    \seq_if_exist:cF { g__mmxref_referrers_for_#1_seq }
+      {
+        \seq_gput_right:Nn \g__mmxref_targets_seq {#1} % append to target list
+        \seq_new:c { g__mmxref_referrers_for_#1_seq }
+      }
+
+    % Append #2 to the list of referrers for target #1 if it's not already there
+    \seq_if_in:cnF { g__mmxref_referrers_for_#1_seq } {#2}
+      { \seq_gput_right:cn { g__mmxref_referrers_for_#1_seq } {#2} }
+  }
+
+\bool_new:N \l__mmxref_iodsac_result_bool
+
+% The predicate is overly pessimistic, but this is on purpose. More precisely,
+% this predicate will suggest the user to rerun LaTeX in case the only
+% difference is the order of target labels in \g__mmxref_targets_seq and
+% \g__mmxref_previous_targets_seq. This order is unimportant, but doing an
+% unordered sequence comparison would take much more time on large lists (sort
+% the two lists first, then compare). So, we accept harmless false positives
+% in rare cases that recommend users to perform an actually unneeded
+% additional compilation run, in order to save on compilation time for *all*
+% runs, that could be serious with a large number of targets. In any case,
+% correctness of the document is *not* sacrificed.
+\prg_new_protected_conditional:Nnn \mmxref_if_old_data_same_as_current: { F }
+  {
+    % No difference found between the two datasets so far (true = equal)
+    \bool_set_true:N \l__mmxref_iodsac_result_bool
+
+    % First compare the two lists of target labels
+    \__mmxref_ordered_seq_if_equal:NNTF
+      \g__mmxref_targets_seq \g__mmxref_previous_targets_seq
+      {
+        % The list of target labels hasn't changed since the previous TeX run.
+        % For each target label, compare the corresponding lists of referrers.
+        \seq_map_inline:Nn \g__mmxref_targets_seq
+          {
+            \__mmxref_ordered_seq_if_equal:ccF
+              { g__mmxref_referrers_for_##1_seq }
+              { g__mmxref_previous_referrers_for_##1_seq }
+              {
+                \bool_set_false:N \l__mmxref_iodsac_result_bool % datasets differ
+                \seq_map_break:
+              }
+          }
+
+        \bool_if:NTF \l__mmxref_iodsac_result_bool
+          { \prg_return_true: }
+          { \prg_return_false: }
+      }
+      { \prg_return_false: }
+  }
+
+% #1: label name
+\NewDocumentCommand \mmxlabel { m }
+  {
+    \str_gset:Nn \g_mmxref_most_recent_label_str {#1}
+  }
+
+\cs_generate_variant:Nn \mmxref_add_referrer_for_target:nn { nV }
+
+% #1: target label
+\NewDocumentCommand \mmxref { m }
+  {
+    \mmxref_add_referrer_for_target:nV {#1} \g_mmxref_most_recent_label_str
+  }
+
+\AtEndDocument
+  {
+    % Prevent error when the .aux file is reread. Could, and maybe even should
+    % be changed to initialize the “new dataset” used by the
+    % \mmxref_if_old_data_same_as_current: conditional. But we already have
+    % this dataset in memory, so we take a little shortcut.
+    \cs_set_eq:cN { mmxref@set@referrers@for@target } \use_none:nn
+
+    \iow_now:cx { @auxout }
+      { \seq_map_function:NN \g__mmxref_targets_seq \__mmxref_write_target:n }
+    \msg_info:nn { mmxref } { io/data-written-to-aux-file }
+
+    \mmxref_if_old_data_same_as_current:F
+      {
+        \msg_warning:nn { mmxref }
+          { logic/additional-compilation-run-may-be-needed }
+      }
+  }
+
+% To be filled with actual options
+\keys_define:nn { mmxref } { }
+
+\NewDocumentCommand \mmxrefSetup { m }
+  {
+    \keys_set:nn { mmxref } {#1}
+  }
+
+% Process LaTeX2e-style package options. This uses l3keys2e, see
+% <https://tex.stackexchange.com/a/371754/73317> for explanations.
+% Alternatively, one can use \ProcessKeysPackageOptions if one doesn't want to
+% process global (“class”) options.
+\ProcessKeysOptions { mmxref }
+
+\endinput
