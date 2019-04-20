@@ -39,6 +39,9 @@
 % ****************************************************************************
 \msg_new:nnn { mmxref } { io/data-written-to-aux-file }
   { Data~has~been~written~to~the~.aux~file. }
+\msg_new:nnn { mmxref } { main/aux-file-writing-is-disabled }
+  { \token_to_str:N \nofiles\ has~been~called,~therefore~mmxref~can't~work~
+    properly. }
 \msg_new:nnn { mmxref } { main/additional-compilation-run-may-be-needed }
   { Lists~of~back-references~have~changed;~another~compilation~run~may~be~
     needed. }
@@ -250,21 +253,26 @@
 
 \AtEndDocument
   {
-    % Prevent error when the .aux file is reread. Could, and maybe even should
-    % be changed to initialize the “new dataset” used by the
-    % \__mmxref_if_old_data_same_as_current: conditional. But we already have
-    % this dataset in memory, so we take a little shortcut.
-    \cs_set_eq:cN { mmxref@set@referrers@for@target } \use_none:nn
+    \use:c { if@filesw }
+      % Prevent errors when the .aux file is reread at the end of document
+      % processing. Could, and maybe even should be changed to initialize the
+      % “new dataset” used by the \__mmxref_if_old_data_same_as_current:
+      % conditional. But we already have this dataset in memory, so we take a
+      % little shortcut.
+      \cs_set_eq:cN { mmxref@set@referrers@for@target } \use_none:nn
 
-    \iow_now:cx { @auxout }
-      { \seq_map_function:NN \g__mmxref_targets_seq \__mmxref_write_target:n }
-    \msg_info:nn { mmxref } { io/data-written-to-aux-file }
+      \iow_now:cx { @auxout }
+        { \seq_map_function:NN \g__mmxref_targets_seq \__mmxref_write_target:n }
+      \msg_info:nn { mmxref } { io/data-written-to-aux-file }
 
-    \__mmxref_if_old_data_same_as_current:F
-      {
-        \msg_warning:nn { mmxref }
-          { main/additional-compilation-run-may-be-needed }
-      }
+      \__mmxref_if_old_data_same_as_current:F
+        {
+          \msg_warning:nn { mmxref }
+            { main/additional-compilation-run-may-be-needed }
+        }
+    \else
+      \msg_warning:nn { mmxref } { main/aux-file-writing-is-disabled }
+    \fi
   }
 
 % ****************************************************************************
