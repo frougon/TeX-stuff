@@ -161,10 +161,10 @@ used to change the start of the automatically-generated sentence (see
 
 ## Package options
 
-The `\mmxref` package currently supports one option:
+The `mmxref` package currently supports one option:
 
 - `use-hyperlinks=true|false`: whether to generate hyperlinks for
-  cross-references (this appplies to both forward and backward references).
+  cross-references (this appplies to forward and backward references).
 
 This option may be specified in the `\usepackage` call as well as in the
 argument of `\mmxSetup` (the latter allows one to change the setting
@@ -174,7 +174,7 @@ mid-document). It works as follows:
   choice and will be respected (`use-hyperlinks=true` only works if
   `hyperref` is loaded);
 
-- otherwise, `\mmxref` enables hyperlinks only if `hyperref` is loaded
+- otherwise, `mmxref` enables hyperlinks only if `hyperref` is loaded
   in the document preamble.
 
 ## Summary of the available commands
@@ -198,7 +198,7 @@ The user commands provided by `mmxref.sty` are:
 
   For instance, in a document where hyperlinks are enabled, you can use
   `\mmxSetup{use-hyperlinks=false}` within the document in order to
-  temporarily suppress their generation my `mmxref`.
+  temporarily suppress their generation by `mmxref`.
 
 For all things that aren't documented here (in particular, most commands from
 the second item of the preceding list), please refer to `mmxref.sty`. Most
@@ -216,18 +216,18 @@ label for the back-reference (hyperlinks are generated using LaTeX labels with
 the `\hyperref[label]{text}` syntax).
 
 I think very few people (none?) have written custom versions of
-`\mmxFormatBackRef` or used the old `\mmxref_format_backref:nnn`, therefore
-this incompatible change should be acceptable. You may contact me if this is a
-big problem for you: it is indeed
-[possible](https://www.latex-project.org/publications/2018-FMi-TUB-tb122mitt-version-rollback.pdf)
+`\mmxFormatBackRef` for `mmxref.sty` version 0.1, or used the old
+`\mmxref_format_backref:nnn` function; therefore, this incompatible change
+should be acceptable. Feel free to contact me if this is a big problem for
+you: it is indeed [possible](https://www.latex-project.org/publications/2018-FMi-TUB-tb122mitt-version-rollback.pdf)
 to make it so that `\usepackage{mmxref}[=v0.1]` loads version 0.1 of `mmxref`
 (this would of course clutter the repository a little bit, which is why I
 didn't do it).
 
 Remember that when one switches between “`hyperref` loaded” and “`hyperref`
-not loaded” for a document, it is normal to have errors in the first
-compilation run following the change. In such a case, simply recompile your
-document.
+not loaded” for a given document, it is quite normal to have errors in the
+first compilation run following the change. In such a case, simply recompile
+your document.
 
 ## License
 
