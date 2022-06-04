@@ -3,6 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{mmxref}
+\usepackage[colorlinks=true,linkcolor=blue]{hyperref}
 
 % The default prefix for labels created by mmxref is “mmxref-”. You can easily
 % change this prefix:
@@ -63,22 +64,39 @@
       }
   }
 
-\RenewDocumentCommand \mmxFormatBackRef { m m m }
+\tl_new:N \l__myprefix_mmxFormatBackRef_ref_tl
+
+\RenewDocumentCommand \mmxFormatBackRef { m m m m }
   {
+    \tl_set:Nn \l__myprefix_mmxFormatBackRef_ref_tl
+      { \mmxref_insert_ref:nn {#4} {#2} }
+
     \str_case:nnF {#1}
       {
-        { part } { à~la~partie \nobreakspace #2~page \nobreakspace #3 }
-        { chapter } { au~chapitre \nobreakspace #2~page \nobreakspace #3 }
-        { section } { à~la~section \nobreakspace #2~page \nobreakspace #3 }
-        % Intentional: « sous-section » is too ugly here
-        { subsection } { à~la~section \nobreakspace #2~page \nobreakspace #3 }
+        { part }
+        { à~la~partie \nobreakspace \l__myprefix_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
+        { chapter }
+        { au~chapitre \nobreakspace \l__myprefix_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
+        { section }
+        { à~la~section \nobreakspace \l__myprefix_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
+        % Intentional: “subsection” is too ugly here
+        { subsection }
+        { à~la~section \nobreakspace \l__myprefix_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
         % Ditto
-        { subsubsection } { à~la~section \nobreakspace #2~page \nobreakspace
-        #3 }
-        { paragraph } { au~paragraphe \nobreakspace #2~page \nobreakspace #3 }
+        { subsubsection }
+        { à~la~section \nobreakspace \l__myprefix_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
+        { paragraph }
+        { au~paragraphe \nobreakspace \l__myprefix_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
         % Ditto
-        { subparagraph } { au~paragraphe \nobreakspace #2~
-                           page \nobreakspace #3 }
+        { subparagraph }
+        { au~paragraphe \nobreakspace \l__myprefix_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
       }
       {
         \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}

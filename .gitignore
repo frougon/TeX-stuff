@@ -2,5 +2,6 @@ auctex-auto/
 tmp/
 *.aux
 *.log
+*.out
 *.pdf
 *.png

@@ -6,7 +6,7 @@ I've written the `mmxref` package to answer [this
 question](https://tex.stackexchange.com/questions/484666/list-where-ref-have-been-made/)
 on [TeX.StackExchange.com](https://tex.stackexchange.com/) and practice a bit
 with the programming facilities offered by
-[LaTeX3](https://www.latex-project.org/latex3/). I don't consider this a
+[LaTeX3](https://www.latex-project.org/latex3/). I don't consider this a very
 serious package, in that I didn't take the time to design a great API that
 I'll be willing to support for years to come—I don't have myself any use for
 the package, apart from practicing LaTeX3. But I found the problem interesting
@@ -66,8 +66,9 @@ that improve on LaTeX's standard label/reference system:
   `\zlabel` on page, which allows one to compute the distance between two
   elements on a given page, etc.
 
-`mmxref` uses [zref](https://ctan.org/pkg/zref) to manage its references. You
-can see a few screenshots obtained with basic `mmxref` sample files [on
+`mmxref` uses [zref](https://ctan.org/pkg/zref) to manage its references, and
+optionally `hyperref` to print them as hyperlinks. You can see a few
+screenshots obtained with basic `mmxref` sample files [on
 TeX.StackExchange.com](https://tex.stackexchange.com/a/485386/73317).
 
 ## Quick Instructions
@@ -114,6 +115,7 @@ Now the back-references. Let's take an example:
 ```latex
 \documentclass{report}
 \usepackage{mmxref}
+%\usepackage{hyperref} % uncomment this if you want hyperlinks
 
 \begin{document}
 % Of course, A, A.1, A.2 are for the example; you wouldn't include something
@@ -157,6 +159,24 @@ Note: `\mmxInsertBackReferences` also accepts an optional argument that can be
 used to change the start of the automatically-generated sentence (see
 `simple.tex` in the the `examples` directory).
 
+## Package options
+
+The `\mmxref` package currently supports one option:
+
+- `use-hyperlinks=true|false`: whether to generate hyperlinks for
+  cross-references (this appplies to both forward and backward references).
+
+This option may be specified in the `\usepackage` call as well as in the
+argument of `\mmxSetup` (the latter allows one to change the setting
+mid-document). It works as follows:
+
+- if `use-hyperlinks` is specified somewhere, this indicates an explicit user
+  choice and will be respected (`use-hyperlinks=true` only works if
+  `hyperref` is loaded);
+
+- otherwise, `\mmxref` enables hyperlinks only if `hyperref` is loaded
+  in the document preamble.
+
 ## Summary of the available commands
 
 The user commands provided by `mmxref.sty` are:
@@ -173,21 +193,49 @@ The user commands provided by `mmxref.sty` are:
   produces something that is automatically inserted by some other command from
   the `mmxref` package.
 
-- `\mmxSetup`: not useful for now, as `mmxref` doesn't accept any option.
+- `\mmxSetup{options}`: process the specified `mmxref` options. This command
+  respects TeX grouping.
 
-For all things that aren't documented here (in particular most commands from
+  For instance, in a document where hyperlinks are enabled, you can use
+  `\mmxSetup{use-hyperlinks=false}` within the document in order to
+  temporarily suppress their generation my `mmxref`.
+
+For all things that aren't documented here (in particular, most commands from
 the second item of the preceding list), please refer to `mmxref.sty`. Most
 user-oriented commands (those defined with `\NewDocumentCommand`) are preceded
 by a comment indicating the role played by each parameter. Also, be sure to
 have a look in the `examples` subdirectory!
 
-### License
+## Changes in version 0.2 (2022-06-04)
+
+Support for option `use-hyperlinks` was added. This required an incompatible
+change: `\mmxFormatBackRef` now takes a fourth argument and
+`\mmxref_format_backref:nnn` is replaced by `\mmxref_format_backref:nnnn`. In
+both macros, the additional argument is the last one and should be a LaTeX
+label for the back-reference (hyperlinks are generated using LaTeX labels with
+the `\hyperref[label]{text}` syntax).
+
+I think very few people (none?) have written custom versions of
+`\mmxFormatBackRef` or used the old `\mmxref_format_backref:nnn`, therefore
+this incompatible change should be acceptable. You may contact me if this is a
+big problem for you: it is indeed
+[possible](https://www.latex-project.org/publications/2018-FMi-TUB-tb122mitt-version-rollback.pdf)
+to make it so that `\usepackage{mmxref}[=v0.1]` loads version 0.1 of `mmxref`
+(this would of course clutter the repository a little bit, which is why I
+didn't do it).
+
+Remember that when one switches between “`hyperref` loaded” and “`hyperref`
+not loaded” for a document, it is normal to have errors in the first
+compilation run following the change. In such a case, simply recompile your
+document.
+
+## License
 
 This package is free software released under the LaTeX Project Public License
 version 1.3 or (at your option) any later version. See `mmxref.sty` for the
 precise licensing information.
 
-### Thanks
+## Thanks
 
 Special thanks go to Enrico Gregorio, whose code kindly offered in [this
 answer](https://tex.stackexchange.com/a/484806/73317) at

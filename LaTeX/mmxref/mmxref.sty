@@ -31,7 +31,7 @@
 \RequirePackage{zref-user}   % for \zref
 \RequirePackage{zref-counter}% not really required, but allows to do nice things
 
-\ProvidesExplPackage{mmxref}{2019-04-18}{0.1}
+\ProvidesExplPackage{mmxref}{2022-06-04}{0.2}
                     {Gather and list back-references for target labels}
 
 % ****************************************************************************
@@ -47,6 +47,11 @@
     needed. }
 \msg_new:nnn { mmxref } { main/undefined-ref-format-for-counter }
   { No~format~defined~for~references~associated~to~the~'#1'~counter. }
+\msg_new:nnnn { mmxref } { options/boolean-values-only }
+  { Key~'#1'~accepts~boolean~values~only. }
+  { The~key~'#1'~only~accepts~the~values~'true'~and~'false'. }
+
+\cs_generate_variant:Nn \msg_error:nnn { nnV }
 
 % ****************************************************************************
 % *                                zref setup                                *
@@ -59,9 +64,11 @@
 % ****************************************************************************
 % *             LaTeX3 bindings to macros from the zref package              *
 % ****************************************************************************
+
 \cs_new_protected:Npn \mmxref_set_label:n #1
   {
-    \zref@labelbylist { #1 } { mmxref }
+    \zref@labelbylist {#1} { mmxref }
+    \label {#1}            % for use with hyperref when hyperlinks are enabled
   }
 
 \cs_generate_variant:Nn \mmxref_set_label:n { V }
@@ -142,7 +149,7 @@
 \cs_generate_variant:Nn \__mmxref_ordered_seq_if_equal:NNF { cc }
 
 % ****************************************************************************
-% *                             Global variables                             *
+% *                                Variables                                 *
 % ****************************************************************************
 
 % Default prefix used for all reference names (à la \label{...}) put by this
@@ -155,6 +162,11 @@
 \seq_new:N \g__mmxref_targets_seq
 % Ditto, but from the previous run (as obtained from the .aux file)
 \seq_new:N \g__mmxref_previous_targets_seq
+
+% Whether forward or backward references should be presented as hyperlinks
+\bool_new:N \l_mmxref_use_hyperlinks_bool
+% Indicates whether option 'use-hyperlinks' was passed (regardless of the value)
+\bool_new:N \l__mmxref_use_hyperlinks_explicit_bool
 
 % ****************************************************************************
 % *                             Local temporaries                            *
@@ -404,53 +416,89 @@
 % #1: counter name for a back-reference (a referrer)
 % #2: value of the 'default' property
 % #3: value of the 'page' property
-\cs_new_protected:Npn \mmxref_format_backref:nnn #1#2#3
+% #4: LaTeX label corresponding to the back-reference
+\cs_new_protected:Npn \mmxref_format_backref:nnnn #1#2#3#4
   {
     % \mmxFormatBackRef may be redefined by users. We'll call it with its
     % arguments fully expanded, in order to make it easy to work with for
     % users (this way, \mmxFormatBackRef doesn't need to expand its first
     % argument before comparing it to well-known values).
-    \mmxFormatBackRef {#1} {#2} {#3}
+    \mmxFormatBackRef {#1} {#2} {#3} {#4}
   }
 
-\cs_generate_variant:Nn \mmxref_format_backref:nnn { xxx }
+\cs_generate_variant:Nn \mmxref_format_backref:nnnn { xxx }
+
+\tl_new:N \l__mmxref_mmxFormatBackRef_ref_tl
 
 % May be redefined by users (e.g., for translations)
 % #1: counter name for a back-reference (a referrer)
 % #2: value of the 'default' property
 % #3: value of the 'page' property
-\NewDocumentCommand \mmxFormatBackRef { m m m }
+% #4: LaTeX label corresponding to the back-reference
+\NewDocumentCommand \mmxFormatBackRef { m m m m }
   {
-    % One could avoid the indirection layer through \mmxref_format_backref:xxx
+    \tl_set:Nn \l__mmxref_mmxFormatBackRef_ref_tl
+      { \mmxref_insert_ref:nn {#4} {#2} }
+
+    % One could avoid the indirection layer through \mmxref_format_backref:xxxn
     % by using \str_case:xnF here, but since this command (\mmxFormatBackRef)
     % is user-redefinable, let's make it as easy as possible to work with.
     \str_case:nnF {#1}
       {
-        { part } { in~part \nobreakspace #2~page \nobreakspace #3 }
-        { chapter } { in~chapter \nobreakspace #2~page \nobreakspace #3 }
-        { section } { in~section \nobreakspace #2~page \nobreakspace #3 }
+        { part }
+        { in~part \nobreakspace \l__mmxref_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
+        { chapter }
+        { in~chapter \nobreakspace \l__mmxref_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
+        { section }
+        { in~section \nobreakspace \l__mmxref_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
         % Intentional: “subsection” is too ugly here
-        { subsection } { in~section \nobreakspace #2~page \nobreakspace #3 }
+        { subsection }
+        { in~section \nobreakspace \l__mmxref_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
         % Ditto
-        { subsubsection } { in~section \nobreakspace #2~page \nobreakspace #3 }
-        { paragraph } { in~paragraph \nobreakspace #2~page \nobreakspace #3 }
+        { subsubsection }
+        { in~section \nobreakspace \l__mmxref_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
+        { paragraph }
+        { in~paragraph \nobreakspace \l__mmxref_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
         % Ditto
-        { subparagraph } { in~paragraph \nobreakspace #2~page \nobreakspace #3 }
+        { subparagraph }
+        { in~paragraph \nobreakspace \l__mmxref_mmxFormatBackRef_ref_tl
+          \c_space_tl page \nobreakspace #3 }
       }
       {
         \msg_error:nnn { mmxref } { main/undefined-ref-format-for-counter } {#1}
       }
   }
 
+% Insert a reference, possibly as a hyperlink. The choice depends on whether
+% option 'use-hyperlinks' was used (and if not, whether hyperref was loaded).
+%
+% #1: a LaTeX label
+% #2: text
+\cs_new_protected:Npn \mmxref_insert_ref:nn #1#2
+  {
+    \bool_if:NTF \l_mmxref_use_hyperlinks_bool
+      { \hyperref [#1] {#2} }
+      {#2}
+  }
+
+\cs_generate_variant:Nn \mmxref_insert_ref:nn { V }
+
 % #1: reference name (label), including the prefix
 \cs_new_protected:Npn \mmxref_format_backref_for_label:n #1
   {
     \zifrefundefined {#1} { }   % only extract from ref when it's defined
       {
-        \mmxref_format_backref:xxx
+        \mmxref_format_backref:xxxn
           { \mmxref_extract_prop:nn {#1} { counter } }
           { \mmxref_extract_prop:nn {#1} { default } }
           { \mmxref_extract_prop:nn {#1} { page } }
+          {#1}
       }
   }
 
@@ -494,7 +542,8 @@
       { \str_use:N \g_mmxref_label_prefix_str #2 } % target
     \mmxref_add_referrer_for_target:VV \l__mmxref_tmpb_str \l__mmxref_tmpa_str
 
-    \mmxref_zref:nV { default } \l__mmxref_tmpb_str
+    \mmxref_insert_ref:Vn \l__mmxref_tmpb_str
+      { \mmxref_zref:nV { default } \l__mmxref_tmpb_str }
   }
 
 % #1: backref: the inserted ref will pretend to have been inserted from #1.
@@ -553,8 +602,22 @@
     \str_gset:Nn \g_mmxref_label_prefix_str {#1}
   }
 
-% To be filled with actual options
-\keys_define:nn { mmxref } { }
+\keys_define:nn { mmxref }
+  {
+    use-hyperlinks .choice:,
+    use-hyperlinks .default:n = true,
+    use-hyperlinks / true .code:n = {
+      \bool_set_true:N \l__mmxref_use_hyperlinks_explicit_bool
+      \bool_set_true:N \l_mmxref_use_hyperlinks_bool
+    },
+    use-hyperlinks / false .code:n = {
+      \bool_set_true:N \l__mmxref_use_hyperlinks_explicit_bool
+      \bool_set_false:N \l_mmxref_use_hyperlinks_bool
+    },
+    use-hyperlinks / unknown .code:n = {
+      \msg_error:nnV { mmxref } { options/boolean-values-only } \l_keys_key_str
+    },
+  }
 
 \NewDocumentCommand \mmxSetup { m }
   {
@@ -566,5 +629,18 @@
 % Alternatively, one can use \ProcessKeysPackageOptions if one doesn't want to
 % process global (“class”) options.
 \ProcessKeysOptions { mmxref }
+
+\AtBeginDocument
+  {
+    % If option 'use-hyperlinks' wasn't specified, set
+    % \l_mmxref_use_hyperlinks_bool to true if 'hyperref' is loaded, false
+    % otherwise.
+    \bool_if:NF \l__mmxref_use_hyperlinks_explicit_bool
+      {
+        \IfPackageLoadedTF { hyperref }
+          { \bool_set_true:N \l_mmxref_use_hyperlinks_bool }
+          { \bool_set_false:N \l_mmxref_use_hyperlinks_bool }
+      }
+  }
 
 \endinput
